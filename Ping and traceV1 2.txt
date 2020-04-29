@@ -1,0 +1,89 @@
+import concurrent.futures
+import threading
+from subprocess import Popen, PIPE
+import time
+from openpyxl import Workbook
+import re
+import os
+book=Workbook()
+sheet=book.active
+sheet.cell(row=1, column=1).value="IP"
+sheet.cell(row=1, column=2).value="Pingable"
+sheet.cell(row=1, column=3).value="DNS" 
+def IP():
+    print("Enter Range")
+    start=raw_input("From: ")
+    end=raw_input("To: ")
+    start_list=re.split('\.', start)
+    octet_range=re.split('\.', start)
+    end_list=re.split('\.', end)
+    octet=0
+    block_size=0
+    octet_begin=0
+    octet_end=0
+    for i in range(0, 4):
+        if start_list[i]!=end_list[i]:
+            block_size=abs(int(start_list[i])-int(end_list[i]))
+            octet=i
+            octet_begin=(int(start_list[i]))
+            octet_end=(int(end_list[i]))
+            while i<4:
+                octet_range[i]='%d'
+                i+=1
+            break
+    IP_template='.'
+    IP_template=IP_template.join(octet_range)
+    octet_iter=0
+    for a in range(octet_begin, octet_end+1):
+        if octet==3:
+            s=(IP_template%(a))
+            iplist.append(s)
+        elif octet_iter==0:
+            for b in range(int(start_list[3]), 256):
+                s=(IP_template%(octet_begin+octet_iter, b))
+                iplist.append(s)
+        elif octet_iter<block_size:
+            for b in range(0, 256):
+                s=(IP_template%(octet_begin+octet_iter, b)) 
+                iplist.append(s)
+        elif octet_iter==block_size:
+            for b in range(0, int(end_list[3])+1):
+                s=(IP_template%(octet_begin+octet_iter, b)) 
+                iplist.append(s)
+        else:
+            break
+        octet_iter+=1  
+    for ips in iplist:
+        a=sheet.max_row + 1
+        sheet.cell(row=a, column=1).value = ips
+def Ping(IP, Ping, DNS):
+    DomainName=''
+    s=Popen("cmd /c ping -a -n 2 -w 1 " + IP.value, shell=True, stdout=PIPE).stdout.readlines()
+    if "nsroot.net" in s[1]:
+        DomainName=s[1].split(' ')[1]
+    elif ".com" in s[1]:
+        DomainName=s[1].split(' ')[1]
+    else:
+        DomainName='NA'
+    DNS.value=DomainName
+    for i in s:
+        if 'TTL' in i:
+            Ping.value='Yes'
+            break
+        else:
+            Ping.value='no'
+def Ping_Sweep(IP_Range):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(iplist)+20) as executor:
+        for row in IP_Range.iter_rows():
+            executor.submit(Ping, row[0], row[1], row[2])
+iplist=[]
+IP()
+user=os.getenv('username')
+dt=time.time()
+Ping_Sweep(sheet)
+end_dt=time.time()-dt
+print(end_dt)
+sheet.cell(row=1, column=1).value="IP"
+sheet.cell(row=1, column=2).value="Pingable"
+sheet.cell(row=1, column=3).value="DNS"
+book.save(r"C:\Users\user\Desktop\ping_sweep_result.xlsx")
