@@ -1,0 +1,38 @@
+import re
+import socket
+
+def get_port_id(a):
+    List=['vlan', 'gi', 'te', 'eth']
+    port='TBD'
+    id='TBD'
+    for x in List:
+        if a.split()[0].lower().startswith(x):
+            port=x
+            id=re.findall(r'\d.*', a.split()[0])[0]
+            if '/' in id:
+                id=id.replace("/", "-")
+    return port, id
+
+def ParseText(_original_result):
+    dic = {'Result':{'IP': [], 'DNS': []}}
+    data = _original_result.split('\n')
+    hostname = data[0].split('#')[0]
+    for i in data:
+        if 'down' not in i.split():
+            name='NA'
+            ip_add=re.findall(r'\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3}', i)
+            if ip_add:
+                try:
+                    namee=socket.gethostbyaddr(ip_add[0])
+                    name=namee[0]                    
+                except socket.herror:
+                    port, id = get_port_id(i)
+                    name='NEW: '+hostname+'-'+port+id
+                if re.findall(rf'{hostname}', name):
+                    pass
+                else:
+                    port, id = get_port_id(i)
+                    name='MODIFY: '+hostname+'-'+port+id                    
+                dic['Result']['IP'].append(ip_add[0])
+                dic['Result']['DNS'].append(name)
+    return dic
